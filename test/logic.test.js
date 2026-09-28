@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addDays, diffDays, newBlock, blockEnd, blockDates, blockSummary, dayStatus, currentBlock, totalCleanDays } from '../src/logic.js';
+import { addDays, diffDays, newBlock, blockEnd, blockDates, blockSummary, dayStatus, currentBlock, totalCleanDays, streaks } from '../src/logic.js';
 
 test('block spans 75 days inclusive', () => {
   const b = newBlock('2026-09-28');
@@ -60,6 +60,18 @@ test('block length is chosen per block and clamped to the limit', () => {
   assert.equal(newBlock('2026-10-02', 30).length, 30);
   assert.equal(blockDates(newBlock('2026-10-02', 30)).length, 30);
   assert.equal(newBlock('2026-10-02', 0).length, 1);
-  assert.equal(newBlock('2026-10-02', 9999).length, 365);
+  assert.equal(newBlock('2026-10-02', 9999).length, 120);
   assert.equal(newBlock('2026-10-02', 'abc').length, 75);
+});
+
+test('streaks: longest run, and current run survives an unlogged today', () => {
+  const days = {};
+  for (const d of ['2026-10-02', '2026-10-03', '2026-10-04']) days[d] = { clean: true };
+  days['2026-10-05'] = { clean: false };
+  for (const d of ['2026-10-06', '2026-10-07']) days[d] = { clean: true };
+  assert.deepEqual(streaks(days, '2026-10-07'), { current: 2, longest: 3 });
+  assert.deepEqual(streaks(days, '2026-10-08'), { current: 2, longest: 3 });
+  days['2026-10-08'] = { clean: false };
+  assert.deepEqual(streaks(days, '2026-10-08'), { current: 0, longest: 3 });
+  assert.deepEqual(streaks({}, '2026-10-08'), { current: 0, longest: 0 });
 });

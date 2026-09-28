@@ -1,11 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#111111"/>
-  <g fill="#fafafa">
-    <rect x="240" y="96" width="32" height="56" rx="6"/>
-    <rect x="240" y="184" width="32" height="56" rx="6"/>
-    <rect x="240" y="272" width="32" height="56" rx="6"/>
-    <rect x="240" y="360" width="32" height="56" rx="6"/>
-    <path d="M128 416 L200 96 L216 96 L172 416 Z"/>
-    <path d="M384 416 L312 96 L296 96 L340 416 Z"/>
-  </g>
+  <rect width="512" height="512" rx="112" fill="#ffffff"/>
+  <rect x="64" y="168" width="176" height="176" rx="16" fill="#8a0303"/>
+  <rect x="276" y="172" width="168" height="168" rx="14" fill="#ffffff" stroke="#d9d9d9" stroke-width="8"/>
+  <text x="360" y="300" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="124" fill="#228b22">$</text>
 </svg>

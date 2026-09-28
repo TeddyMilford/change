@@ -8,8 +8,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Runway',
-        short_name: 'Runway',
+        name: 'Change',
+        short_name: 'Change',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#fafafa',

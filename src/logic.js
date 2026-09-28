@@ -1,17 +1,9 @@
 // Pure functions. No DOM, no storage.
 
 export const BLOCK_DAYS = 75; // default
-export const BLOCK_MAX = 365;
+export const BLOCK_MAX = 120;
 
 export const QUESTION = 'Were you financially responsible today?';
-
-// What a clean day means. Edit here.
-export const RULES = [
-  'No credit card today. Debit or cash is fine.',
-  'Anything that isn’t food or gas waits 24 hours.',
-  'Hobby gear waits 72 hours.',
-  'Midweek groceries: Aldi or nothing.',
-];
 
 // ---- dates (local time, YYYY-MM-DD) ----
 
@@ -96,4 +88,21 @@ export function blockSummary(block, days, todayStr) {
 // Clean days across every block. Never goes down.
 export function totalCleanDays(days) {
   return Object.values(days).filter((d) => d.clean === true).length;
+}
+
+// Consecutive clean days. current: the run ending today, or yesterday if today isn't logged yet.
+export function streaks(days, todayStr) {
+  const clean = new Set(Object.keys(days).filter((d) => days[d].clean === true));
+  let longest = 0;
+  for (const d of clean) {
+    if (clean.has(addDays(d, -1))) continue;
+    let n = 1;
+    let x = d;
+    while (clean.has((x = addDays(x, 1)))) n++;
+    if (n > longest) longest = n;
+  }
+  const end = clean.has(todayStr) ? todayStr : days[todayStr] ? null : addDays(todayStr, -1);
+  let current = 0;
+  for (let x = end; x && clean.has(x); x = addDays(x, -1)) current++;
+  return { current, longest };
 }
