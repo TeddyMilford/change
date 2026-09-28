@@ -1,6 +1,6 @@
 // Pure functions. No DOM, no storage.
 
-export const BLOCK_DAYS = 75; // default
+export const BLOCK_DAYS = 90; // default
 export const BLOCK_MAX = 120;
 
 export const QUESTION = 'Were you financially responsible today?';

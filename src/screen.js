@@ -1,11 +1,11 @@
 import { state, save, wipe } from './db.js';
-import { today, addDays, currentBlock, blockSummary, newBlock, formatDate, totalCleanDays, streaks, clampLength, QUESTION, BLOCK_DAYS, BLOCK_MAX } from './logic.js';
+import { today, addDays, currentBlock, blockSummary, newBlock, formatDate, totalCleanDays, streaks, clampLength, QUESTION, BLOCK_MAX } from './logic.js';
 import { esc, on, reset } from './ui.js';
 
 const root = document.getElementById('app');
 
 let asking = false; // show the question again, for a wrong tap
-let setup = null; // 'new' (first block, or next after one ends) | 'edit' (settings)
+let setup = null; // 'new' (first run) | 'edit' (settings)
 
 export function render() {
   reset(root);
@@ -14,25 +14,29 @@ export function render() {
   if (!block) setup = 'new';
 
   if (setup) {
-    const src = setup === 'edit' ? block : { startDate: t, length: block ? block.length : BLOCK_DAYS };
-    root.innerHTML = setupHtml(setup, src, !!block);
+    root.innerHTML = setup === 'edit' ? settingsHtml(block) : introHtml();
+    on(root, 'click', '[data-act="start"]', async () => {
+      state.blocks.push(newBlock(t));
+      await save();
+      setup = null;
+      render();
+    });
     on(root, 'submit', '#setup', async (e) => {
       e.preventDefault();
       const f = e.target;
-      const start = /^\d{4}-\d{2}-\d{2}$/.test(f.start.value) ? f.start.value : t;
-      const length = clampLength(f.days.value);
-      if (setup === 'edit') {
-        block.startDate = start;
-        block.length = length;
-      } else {
-        state.blocks.push(newBlock(start, length));
-      }
+      block.startDate = /^\d{4}-\d{2}-\d{2}$/.test(f.start.value) ? f.start.value : t;
+      block.length = clampLength(f.days.value);
       await save();
       setup = null;
       render();
     });
     on(root, 'click', '[data-act="back"]', () => { setup = null; render(); });
-    if (import.meta.env.DEV) on(root, 'click', '[data-act="reset"]', async () => { await wipe(); setup = null; render(); });
+    on(root, 'click', '[data-act="reset"]', async () => {
+      if (!confirm('Erase everything and start over?')) return;
+      await wipe();
+      setup = null;
+      render();
+    });
     return;
   }
 
@@ -59,29 +63,33 @@ export function render() {
   on(root, 'click', '[data-answer="yes"]', () => logDay(true));
   on(root, 'click', '[data-answer="no"]', () => logDay(false));
   on(root, 'click', '[data-act="change"]', () => { asking = true; render(); });
-  on(root, 'click', '[data-act="new-block"]', () => { setup = 'new'; render(); });
+  on(root, 'click', '[data-act="new-block"]', async () => {
+    state.blocks.push(newBlock(t, block.length));
+    await save();
+    render();
+  });
   on(root, 'click', '[data-act="settings"]', () => { setup = 'edit'; render(); });
 }
 
-function setupHtml(kind, src, canGoBack) {
-  const links = [];
-  if (canGoBack) links.push(`<button type="button" class="link" data-act="back">Back</button>`);
-  if (import.meta.env.DEV) links.push(`<button type="button" class="link" data-act="reset">Reset</button>`);
-  const first = kind === 'new' && !canGoBack;
+function settingsHtml(block) {
+  const links = [
+    `<button type="button" class="link" data-act="back">Back</button>`,
+    `<button type="button" class="link" data-act="reset">Reset</button>`,
+  ];
   return `
-    ${first ? introHtml() : `<h1>${kind === 'edit' ? 'Settings' : 'Next block'}</h1>`}
+    <h1>Settings</h1>
     <form id="setup" class="stack">
       <div class="row">
-        <label class="field"><span>Days, up to ${BLOCK_MAX}</span><input type="number" name="days" value="${src.length}" min="1" max="${BLOCK_MAX}" inputmode="numeric" required></label>
-        <label class="field"><span>Starts</span><input type="date" name="start" value="${src.startDate}" required></label>
+        <label class="field"><span>Days, up to ${BLOCK_MAX}</span><input type="number" name="days" value="${block.length}" min="1" max="${BLOCK_MAX}" inputmode="numeric" required></label>
+        <label class="field"><span>Starts</span><input type="date" name="start" value="${block.startDate}" required></label>
       </div>
-      <button class="yes">${kind === 'edit' ? 'Save' : 'Start'}</button>
-      ${links.length ? `<p>${links.join(' · ')}</p>` : ''}
+      <button class="yes">Save</button>
+      <p>${links.join(' · ')}</p>
     </form>
   `;
 }
 
-// Shown once, above the first setup form.
+// First run. Start begins a default-length block today.
 function introHtml() {
   return `
     <div class="intro">
@@ -89,6 +97,7 @@ function introHtml() {
       ${sampleHtml()}
       <p>Every night: ${esc(QUESTION.charAt(0).toLowerCase() + QUESTION.slice(1))}</p>
     </div>
+    <button class="yes wide" data-act="start">Start</button>
   `;
 }
 

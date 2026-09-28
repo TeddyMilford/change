@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { addDays, diffDays, newBlock, blockEnd, blockDates, blockSummary, dayStatus, currentBlock, totalCleanDays, streaks } from '../src/logic.js';
 
-test('block spans 75 days inclusive', () => {
-  const b = newBlock('2026-09-28');
+test('a 75-day block spans 75 days inclusive', () => {
+  const b = newBlock('2026-09-28', 75);
   assert.equal(blockEnd(b), '2026-12-11');
   assert.equal(blockDates(b).length, 75);
   assert.equal(diffDays(b.startDate, blockEnd(b)), 74);
@@ -24,7 +24,7 @@ test('dayStatus', () => {
 });
 
 test('clean count and day index; misses never reduce the count', () => {
-  const b = newBlock('2026-10-01');
+  const b = newBlock('2026-10-01', 75);
   const days = {};
   for (let i = 0; i < 10; i++) days[addDays(b.startDate, i)] = { clean: true };
   days[addDays(b.startDate, 10)] = { clean: false };
@@ -37,7 +37,7 @@ test('clean count and day index; misses never reduce the count', () => {
 });
 
 test('day index clamps and ended flag flips the day after the block', () => {
-  const b = newBlock('2026-01-01');
+  const b = newBlock('2026-01-01', 75);
   assert.equal(blockSummary(b, {}, '2025-12-25').dayIndex, 0);
   assert.equal(blockSummary(b, {}, '2026-03-16').ended, false);
   assert.equal(blockSummary(b, {}, '2026-03-17').ended, true);
@@ -61,7 +61,7 @@ test('block length is chosen per block and clamped to the limit', () => {
   assert.equal(blockDates(newBlock('2026-10-02', 30)).length, 30);
   assert.equal(newBlock('2026-10-02', 0).length, 1);
   assert.equal(newBlock('2026-10-02', 9999).length, 120);
-  assert.equal(newBlock('2026-10-02', 'abc').length, 75);
+  assert.equal(newBlock('2026-10-02', 'abc').length, 90);
 });
 
 test('streaks: longest run, and current run survives an unlogged today', () => {

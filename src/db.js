@@ -37,7 +37,7 @@ export async function save() {
   }
 }
 
-// Dev only. Drops everything on this device.
+// Drops everything on this device.
 export async function wipe() {
   try { await clear(); } catch {}
   Object.assign(state, defaults());
