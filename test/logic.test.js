@@ -55,3 +55,11 @@ test('currentBlock picks the latest started block', () => {
 test('totalCleanDays counts across blocks', () => {
   assert.equal(totalCleanDays({ a: { clean: true }, b: { clean: false }, c: { clean: true } }), 2);
 });
+
+test('block length is chosen per block and clamped to the limit', () => {
+  assert.equal(newBlock('2026-10-02', 30).length, 30);
+  assert.equal(blockDates(newBlock('2026-10-02', 30)).length, 30);
+  assert.equal(newBlock('2026-10-02', 0).length, 1);
+  assert.equal(newBlock('2026-10-02', 9999).length, 365);
+  assert.equal(newBlock('2026-10-02', 'abc').length, 75);
+});

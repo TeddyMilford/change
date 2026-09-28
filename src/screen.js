@@ -1,17 +1,34 @@
-import { state, save, hasData, restore, wipe } from './db.js';
-import { today, currentBlock, blockSummary, newBlock, formatDate, totalCleanDays, QUESTION, RULES } from './logic.js';
-import { status, onStatus, connect, disconnect, push, pull } from './sync.js';
-import { esc, $, on, reset } from './ui.js';
+import { state, save, wipe } from './db.js';
+import { today, currentBlock, blockSummary, newBlock, formatDate, totalCleanDays, clampLength, QUESTION, RULES, BLOCK_DAYS, BLOCK_MAX } from './logic.js';
+import { esc, on, reset } from './ui.js';
 
 const root = document.getElementById('app');
 
 let asking = false; // show the question even though today is logged
 let which = false; // the "which rule" step
+let settingUp = false; // choosing the next block
 
 export function render() {
   reset(root);
   const t = today();
   const block = currentBlock(state.blocks, t);
+
+  if (!block || settingUp) {
+    root.innerHTML = setupHtml(block ? block.length : BLOCK_DAYS, t) + devHtml();
+    on(root, 'submit', '#setup', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const start = /^\d{4}-\d{2}-\d{2}$/.test(f.start.value) ? f.start.value : t;
+      state.blocks.push(newBlock(start, clampLength(f.days.value)));
+      await save();
+      settingUp = false;
+      render();
+    });
+    if (block) on(root, 'click', '[data-act="back"]', () => { settingUp = false; render(); });
+    devHandlers();
+    return;
+  }
+
   const s = blockSummary(block, state.days, t);
   const day = state.days[t];
   const logged = day && typeof day.clean === 'boolean';
@@ -23,8 +40,7 @@ export function render() {
     ${s.ended ? `<p>Block ended ${formatDate(s.end)}. <button class="link" data-act="new-block">Start another</button></p>` : ''}
     <section>${t < block.startDate ? `<p>Starts ${formatDate(block.startDate, { weekday: 'long', month: 'long', day: 'numeric' })}.</p>` : which ? whichHtml() : logged && !asking ? loggedHtml(day) : askHtml()}</section>
     ${lifetime !== s.cleanDays ? `<p class="muted">${lifetime} clean days overall</p>` : ''}
-    <p class="foot muted">${footHtml()}</p>
-    ${import.meta.env.DEV ? `<p class="foot muted"><button class="link" data-act="reset">Reset</button></p>` : ''}
+    ${devHtml()}
   `;
 
   on(root, 'click', '[data-answer="yes"]', () => logDay(true));
@@ -39,14 +55,20 @@ export function render() {
   });
   on(root, 'click', '[data-act="back"]', () => { which = false; render(); });
   on(root, 'click', '[data-act="change"]', () => { asking = true; render(); });
-  on(root, 'click', '[data-act="new-block"]', async () => {
-    state.blocks.push(newBlock(t));
-    await save();
-    render();
-  });
-  on(root, 'click', '[data-act="setup"]', setup);
-  on(root, 'click', '[data-act="push"]', () => push().catch(() => {}));
-  if (import.meta.env.DEV) on(root, 'click', '[data-act="reset"]', async () => { await wipe(); render(); });
+  on(root, 'click', '[data-act="new-block"]', () => { settingUp = true; render(); });
+  devHandlers();
+}
+
+function setupHtml(days, t) {
+  return `
+    <h1>How many days?</h1>
+    <form id="setup" class="stack">
+      <label class="field"><span>Days, up to ${BLOCK_MAX}</span><input type="number" name="days" value="${days}" min="1" max="${BLOCK_MAX}" inputmode="numeric" required></label>
+      <label class="field"><span>Starts</span><input type="date" name="start" value="${t}" required></label>
+      <button class="yes">Start</button>
+      ${state.blocks.length ? `<p><button type="button" class="link" data-act="back">Back</button></p>` : ''}
+    </form>
+  `;
 }
 
 function askHtml() {
@@ -75,21 +97,12 @@ function loggedHtml(day) {
   return `<p>Today: ${day.clean ? 'clean' : 'not clean'}${day.brokenRule ? `, ${esc(day.brokenRule)}` : ''}. <button class="link" data-act="change">Change</button></p>`;
 }
 
-function footHtml() {
-  if (!state.settings.gistToken) return `<button class="link" data-act="setup">Backup off</button>`;
-  const change = `<button class="link" data-act="setup">change</button>`;
-  switch (status.state) {
-    case 'syncing': return 'Backing up';
-    case 'error': return `Backup failed. <button class="link" data-act="push">Retry</button> · ${change}`;
-    case 'ok': return `Backed up ${new Date(status.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${change}`;
-    default: return `Backup on · ${change}`;
-  }
+function devHtml() {
+  return import.meta.env.DEV ? `<p class="foot muted"><button class="link" data-act="reset">Reset</button></p>` : '';
 }
-
-onStatus(() => {
-  const el = $('.foot', root);
-  if (el) el.innerHTML = footHtml();
-});
+function devHandlers() {
+  if (import.meta.env.DEV) on(root, 'click', '[data-act="reset"]', async () => { await wipe(); settingUp = false; render(); });
+}
 
 async function logDay(clean, brokenRule) {
   const t = today();
@@ -100,34 +113,9 @@ async function logDay(clean, brokenRule) {
   if (!state.meta.persistRequested && navigator.storage?.persist) {
     state.meta.persistRequested = true;
     try { await navigator.storage.persist(); } catch {}
-    await save({ silent: true });
+    await save();
   }
   which = false;
   asking = false;
-  render();
-}
-
-// Backup goes to a private gist. Token needs the gist scope. One prompt, stored on the device.
-async function setup() {
-  const input = prompt('GitHub token with the gist scope. Blank turns backup off.', state.settings.gistToken);
-  if (input === null) return;
-  const token = input.trim();
-  try {
-    if (!token) {
-      await disconnect();
-    } else if (token === state.settings.gistToken) {
-      await push();
-    } else {
-      const found = await connect(token);
-      if (found && confirm(hasData()
-        ? 'A backup exists. Load it here? Cancel keeps this device’s data and overwrites the backup.'
-        : 'A backup exists. Load it here?')) {
-        await restore(await pull());
-      }
-      await push();
-    }
-  } catch (e) {
-    alert('Backup failed: ' + e.message);
-  }
   render();
 }

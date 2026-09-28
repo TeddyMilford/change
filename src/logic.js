@@ -1,9 +1,7 @@
 // Pure functions. No DOM, no storage.
 
-export const BLOCK_DAYS = 75;
-
-// First block starts on this payday. Later blocks start the day you tap Start another.
-export const START = '2026-10-02';
+export const BLOCK_DAYS = 75; // default
+export const BLOCK_MAX = 365;
 
 export const QUESTION = 'Were you financially responsible today?';
 
@@ -50,8 +48,14 @@ export function formatDate(s, opts = { month: 'short', day: 'numeric' }) {
 
 // ---- blocks ----
 
-export function newBlock(startDate) {
-  return { id: `b_${startDate}_${Math.random().toString(36).slice(2, 8)}`, startDate, length: BLOCK_DAYS };
+export function clampLength(n) {
+  n = Math.round(Number(n));
+  if (!Number.isFinite(n)) return BLOCK_DAYS;
+  return Math.min(BLOCK_MAX, Math.max(1, n));
+}
+
+export function newBlock(startDate, length = BLOCK_DAYS) {
+  return { id: `b_${startDate}_${Math.random().toString(36).slice(2, 8)}`, startDate, length: clampLength(length) };
 }
 
 export function blockEnd(block) {
