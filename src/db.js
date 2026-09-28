@@ -1,4 +1,4 @@
-import { getMany, setMany, clear } from 'idb-keyval';
+import { getMany, setMany } from 'idb-keyval';
 
 export const KEYS = ['blocks', 'days', 'meta'];
 
@@ -35,10 +35,4 @@ export async function save() {
   } catch (e) {
     console.warn('save failed', e);
   }
-}
-
-// Drops everything on this device.
-export async function wipe() {
-  try { await clear(); } catch {}
-  Object.assign(state, defaults());
 }
